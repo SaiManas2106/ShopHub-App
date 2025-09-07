@@ -1,0 +1,122 @@
+[
+  {
+    "id": "1",
+    "name": "Classic T-Shirt",
+    "price": 199,
+    "category": "clothing",
+    "description": "Comfortable cotton t-shirt - everyday essential.",
+    "image": "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "2",
+    "name": "Slim Jeans",
+    "price": 799,
+    "category": "clothing",
+    "description": "Blue slim-fit jeans with stretch for comfort.",
+    "image": "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "4",
+    "name": "Baseball Cap",
+    "price": 299,
+    "category": "clothing",
+    "description": "Stylish cap with adjustable strap.",
+    "image": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "5",
+    "name": "Coffee Mug",
+    "price": 149,
+    "category": "home",
+    "description": "Ceramic coffee mug, 350ml capacity.",
+    "image": "https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "6",
+    "name": "LED Desk Lamp",
+    "price": 549,
+    "category": "home",
+    "description": "Adjustable LED desk lamp with touch control.",
+    "image": "https://images.unsplash.com/photo-1473187983305-f615310e7daa?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "8",
+    "name": "Wireless Headphones",
+    "price": 1299,
+    "category": "electronics",
+    "description": "Over-ear wireless headphones with noise isolation.",
+    "image": "https://images.unsplash.com/photo-1511367461989-f85a21fda167?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "9",
+    "name": "Throw Pillow",
+    "price": 399,
+    "category": "home",
+    "description": "Soft decorative throw pillow for sofa or bed.",
+    "image": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "10",
+    "name": "Smartwatch",
+    "price": 3999,
+    "category": "electronics",
+    "description": "Fitness smartwatch with heart-rate and notifications.",
+    "image": "https://images.unsplash.com/photo-1516574187841-cb9cc2ca948b?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "11",
+    "name": "Bluetooth Speaker",
+    "price": 1599,
+    "category": "electronics",
+    "description": "Portable speaker with rich bass and long battery life.",
+    "image": "https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "12",
+    "name": "Compact Drone",
+    "price": 6599,
+    "category": "electronics",
+    "description": "Foldable drone with 4K camera for aerial photos.",
+    "image": "https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "14",
+    "name": "Yoga Mat",
+    "price": 599,
+    "category": "sports",
+    "description": "Non-slip yoga mat, 6mm thick for stability and comfort.",
+    "image": "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "15",
+    "name": "2-Person Tent",
+    "price": 3499,
+    "category": "sports",
+    "description": "Lightweight camping tent for two people, easy setup.",
+    "image": "https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "16",
+    "name": "Mystery Novel",
+    "price": 249,
+    "category": "books",
+    "description": "A gripping mystery with unexpected twists.",
+    "image": "https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "17",
+    "name": "Programming Guide",
+    "price": 599,
+    "category": "books",
+    "description": "Practical programming guide for modern development.",
+    "image": "https://images.unsplash.com/photo-1473187983305-f615310e7daa?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "18",
+    "name": "Cookbook",
+    "price": 349,
+    "category": "books",
+    "description": "Delicious recipes for everyday meals.",
+    "image": "https://images.unsplash.com/photo-1516574187841-cb9cc2ca948b?auto=format&fit=crop&w=600&q=80"
+  }
+]
