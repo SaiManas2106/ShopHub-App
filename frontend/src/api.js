@@ -1,6 +1,6 @@
 // frontend/src/api.js
 const API = (url => {
-  const base = url || (import.meta.env.VITE_API_BASE || 'http://localhost:4000')
+  const base = url || (import.meta.env.VITE_API_BASE || 'https://shop-hub-app-one.vercel.app')
 
   function getHeaders(token) {
     const headers = { 'Content-Type': 'application/json' };
