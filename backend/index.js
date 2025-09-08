@@ -1,202 +1,284 @@
-const express = require('express');
-const fs = require('fs');
-const path = require('path');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
+import express from "express";
+import cors from "cors";
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import User from "./models/User.js";
+import Item from "./models/Item.js";
+import Cart from "./models/cart.js";
 
 const app = express();
-app.use(cors());
-app.use(bodyParser.json());
 
-const DATA_DIR = path.join(__dirname, 'data');
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+// ----------- Config -----------
+const PORT = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "*"; // put your frontend URL in prod
+const MONGO_URI = process.env.MONGO_URI || "";
 
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
-const ITEMS_FILE = path.join(DATA_DIR, 'items.json');
-const CARTS_FILE = path.join(DATA_DIR, 'carts.json');
+// ----------- Middleware -----------
+app.use(express.json({ limit: "1mb" }));
+app.use(
+  cors({
+    origin: FRONTEND_ORIGIN === "*" ? true : FRONTEND_ORIGIN,
+    credentials: false
+  })
+);
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
-const TOKEN_EXP = '7d'; // token expiry (for convenience)
+// ----------- DB Connect -----------
+if (!MONGO_URI) {
+  console.warn("⚠️  No MONGO_URI set. Set it in your environment for production.");
+}
+mongoose
+  .connect(MONGO_URI, { dbName: "ecom" })
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((e) => console.error("❌ MongoDB error:", e.message));
 
-function readJSON(file, defaultData) {
-  try {
-    if (!fs.existsSync(file)) {
-      fs.writeFileSync(file, JSON.stringify(defaultData, null, 2));
-      return defaultData;
-    }
-    const raw = fs.readFileSync(file);
-    return JSON.parse(raw);
-  } catch (e) {
-    console.error('readJSON error', e);
-    return defaultData;
-  }
+// ----------- Auth helper -----------
+function signToken(user) {
+  return jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, { expiresIn: "7d" });
 }
 
-function writeJSON(file, data) {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2));
-}
-
-// initialize files with sample data if empty
-readJSON(USERS_FILE, []);
-readJSON(ITEMS_FILE, [
-  { id: '1', name: 'T-Shirt', price: 199, category: 'clothing', description: 'Comfortable cotton t-shirt' },
-  { id: '2', name: 'Jeans', price: 799, category: 'clothing', description: 'Blue slim jeans' },
-  { id: '3', name: 'Headphones', price: 1299, category: 'electronics', description: 'Over-ear headphones' },
-  { id: '4', name: 'Coffee Mug', price: 149, category: 'home', description: 'Ceramic mug 350ml' }
-]);
-readJSON(CARTS_FILE, {});
-
-// Simple auth middleware
 function authenticate(req, res, next) {
-  const auth = req.headers.authorization;
-  if (!auth) return res.status(401).json({ error: 'Missing Authorization header' });
-  const token = auth.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Invalid Authorization header' });
+  const h = req.headers.authorization || "";
+  const token = h.startsWith("Bearer ") ? h.slice(7) : null;
+  if (!token) return res.status(401).json({ error: "Missing token" });
   try {
     const payload = jwt.verify(token, JWT_SECRET);
     req.user = payload;
     next();
   } catch (e) {
-    return res.status(401).json({ error: 'Invalid token' });
+    return res.status(401).json({ error: "Invalid token" });
   }
 }
 
-// auth routes
-app.post('/auth/signup', async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'username and password required' });
-  const users = readJSON(USERS_FILE, []);
-  if (users.find(u => u.username === username)) return res.status(400).json({ error: 'username already exists' });
-  const hashed = await bcrypt.hash(password, 8);
-  const user = { id: uuidv4(), username, password: hashed };
-  users.push(user);
-  writeJSON(USERS_FILE, users);
-  const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: TOKEN_EXP });
-  res.json({ token, user: { id: user.id, username: user.username } });
-});
+// ----------- Seed (first deploy convenience) -----------
+// Will seed ITEMS once if collection is empty
+async function seedItemsIfEmpty() {
+  const count = await Item.countDocuments();
+  if (count > 0) return;
+  const seed = [
+    // clothing
+    { name: "Classic Cotton T-Shirt", category: "clothing", price: 499, image: "/images/clothing/tshirt.jpg", description: "Soft cotton. Everyday essential." },
+    { name: "Slim Fit Jeans", category: "clothing", price: 1999, image: "/images/clothing/jeans.jpg", description: "Stretch denim for comfort." },
+    { name: "Athletic Hoodie", category: "clothing", price: 1499, image: "/images/clothing/hoodie.jpg", description: "Warm fleece, modern fit." },
 
-app.post('/auth/login', async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'username and password required' });
-  const users = readJSON(USERS_FILE, []);
-  const user = users.find(u => u.username === username);
-  if (!user) return res.status(400).json({ error: 'invalid credentials' });
-  const ok = await bcrypt.compare(password, user.password);
-  if (!ok) return res.status(400).json({ error: 'invalid credentials' });
-  const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: TOKEN_EXP });
-  res.json({ token, user: { id: user.id, username: user.username } });
-});
+    // home
+    { name: "Ceramic Dinner Set (12pc)", category: "home", price: 2499, image: "/images/home/dinner-set.jpg", description: "Dishwasher safe ceramics." },
+    { name: "Memory Foam Pillow", category: "home", price: 1299, image: "/images/home/pillow.jpg", description: "Neck support for better sleep." },
+    { name: "Textured Throw Blanket", category: "home", price: 999, image: "/images/home/throw.jpg", description: "Cozy and lightweight." },
 
-// Items CRUD and filters
-app.get('/items', (req, res) => {
-  const items = readJSON(ITEMS_FILE, []);
-  let result = items.slice();
-  const { category, minPrice, maxPrice, q } = req.query;
-  if (category) result = result.filter(i => i.category === category);
-  if (minPrice) result = result.filter(i => i.price >= Number(minPrice));
-  if (maxPrice) result = result.filter(i => i.price <= Number(maxPrice));
-  if (q) result = result.filter(i => i.name.toLowerCase().includes(q.toLowerCase()) || (i.description || '').toLowerCase().includes(q.toLowerCase()));
-  res.json(result);
-});
+    // electronics
+    { name: "Wireless Earbuds", category: "electronics", price: 2999, image: "/images/electronics/earbuds.jpg", description: "Bluetooth 5.3, 24h battery." },
+    { name: "Smartwatch S2", category: "electronics", price: 4999, image: "/images/electronics/smartwatch.jpg", description: "Fitness & notifications." },
+    { name: "Portable Speaker", category: "electronics", price: 2299, image: "/images/electronics/speaker.jpg", description: "Deep bass, compact body." },
 
-app.get('/items/:id', (req, res) => {
-  const items = readJSON(ITEMS_FILE, []);
-  const it = items.find(i => i.id === req.params.id);
-  if (!it) return res.status(404).json({ error: 'item not found' });
-  res.json(it);
-});
+    // sports
+    { name: "Pro Football", category: "sports", price: 899, image: "/images/sports/football.jpg", description: "Match quality ball." },
+    { name: "Yoga Mat 6mm", category: "sports", price: 799, image: "/images/sports/yoga-mat.jpg", description: "Non-slip surface." },
+    { name: "Adjustable Dumbbells (Pair)", category: "sports", price: 3499, image: "/images/sports/dumbbells.jpg", description: "Home strength training." },
 
-// Protected endpoints for create/update/delete items (in a real app use roles)
-app.post('/items', authenticate, (req, res) => {
-  const items = readJSON(ITEMS_FILE, []);
-  const { name, price, category, description } = req.body;
-  if (!name || !price) return res.status(400).json({ error: 'name and price required' });
-  const id = uuidv4();
-  const item = { id, name, price: Number(price), category: category || 'general', description: description || '' };
-  items.push(item);
-  writeJSON(ITEMS_FILE, items);
-  res.json(item);
-});
+    // books
+    { name: "The Pragmatic Programmer", category: "books", price: 1599, image: "/images/books/pragmatic.jpg", description: "Programming classic." },
+    { name: "Atomic Habits", category: "books", price: 899, image: "/images/books/atomic.jpg", description: "Build better habits." },
+    { name: "Clean Code", category: "books", price: 1499, image: "/images/books/clean-code.jpg", description: "Code craftsmanship." }
+  ];
+  await Item.insertMany(seed);
+  console.log(`✅ Seeded ${seed.length} items`);
+}
+seedItemsIfEmpty().catch(console.error);
 
-app.put('/items/:id', authenticate, (req, res) => {
-  const items = readJSON(ITEMS_FILE, []);
-  const idx = items.findIndex(i => i.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'item not found' });
-  const updated = { ...items[idx], ...req.body };
-  updated.price = Number(updated.price);
-  items[idx] = updated;
-  writeJSON(ITEMS_FILE, items);
-  res.json(updated);
-});
+// ----------- Routes -----------
 
-app.delete('/items/:id', authenticate, (req, res) => {
-  let items = readJSON(ITEMS_FILE, []);
-  const idx = items.findIndex(i => i.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'item not found' });
-  const removed = items.splice(idx, 1)[0];
-  writeJSON(ITEMS_FILE, items);
-  res.json({ removed });
-});
+// Health
+app.get("/", (_req, res) => res.json({ ok: true, message: "Ecom backend running" }));
 
-// Cart APIs
-app.get('/cart', authenticate, (req, res) => {
-  const carts = readJSON(CARTS_FILE, {});
-  const userCart = carts[req.user.id] || [];
-  res.json(userCart);
-});
+// Auth
+app.post("/auth/signup", async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if (!username || !password) return res.status(400).json({ error: "username and password required" });
 
-app.post('/cart/add', authenticate, (req, res) => {
-  const { itemId, qty } = req.body;
-  if (!itemId) return res.status(400).json({ error: 'itemId required' });
-  const items = readJSON(ITEMS_FILE, []);
-  const it = items.find(i => i.id === itemId);
-  if (!it) return res.status(404).json({ error: 'item not found' });
-  const carts = readJSON(CARTS_FILE, {});
-  const userCart = carts[req.user.id] || [];
-  const existing = userCart.find(c => c.itemId === itemId);
-  if (existing) {
-    existing.qty = existing.qty + (Number(qty) || 1);
-  } else {
-    userCart.push({ itemId, qty: Number(qty) || 1 });
+    const exists = await User.findOne({ username });
+    if (exists) return res.status(400).json({ error: "Username already taken" });
+
+    const hash = await bcrypt.hash(password, 10);
+    const user = await User.create({ username, password: hash });
+
+    // create empty cart
+    await Cart.create({ userId: user._id, items: [] });
+
+    const token = signToken(user);
+    res.json({ token, user: { id: user._id, username: user.username } });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Signup failed" });
   }
-  carts[req.user.id] = userCart;
-  writeJSON(CARTS_FILE, carts);
-  res.json(userCart);
 });
 
-app.post('/cart/remove', authenticate, (req, res) => {
-  const { itemId } = req.body;
-  if (!itemId) return res.status(400).json({ error: 'itemId required' });
-  const carts = readJSON(CARTS_FILE, {});
-  const userCart = carts[req.user.id] || [];
-  const newCart = userCart.filter(c => c.itemId !== itemId);
-  carts[req.user.id] = newCart;
-  writeJSON(CARTS_FILE, carts);
-  res.json(newCart);
+app.post("/auth/login", async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if (!username || !password) return res.status(400).json({ error: "username and password required" });
+
+    const user = await User.findOne({ username });
+    if (!user) return res.status(401).json({ error: "Invalid credentials" });
+
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) return res.status(401).json({ error: "Invalid credentials" });
+
+    const token = signToken(user);
+    res.json({ token, user: { id: user._id, username: user.username } });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Login failed" });
+  }
 });
 
-app.post('/cart/update', authenticate, (req, res) => {
-  const { itemId, qty } = req.body;
-  if (!itemId) return res.status(400).json({ error: 'itemId required' });
-  const carts = readJSON(CARTS_FILE, {});
-  const userCart = carts[req.user.id] || [];
-  const existing = userCart.find(c => c.itemId === itemId);
-  if (!existing) return res.status(404).json({ error: 'item not in cart' });
-  existing.qty = Number(qty);
-  carts[req.user.id] = userCart;
-  writeJSON(CARTS_FILE, carts);
-  res.json(userCart);
+// Items (list + filters)
+app.get("/items", async (req, res) => {
+  try {
+    const { q, category, minPrice, maxPrice } = req.query;
+    const where = {};
+    if (category) where.category = category;
+    if (minPrice || maxPrice) {
+      where.price = {};
+      if (minPrice) where.price.$gte = Number(minPrice);
+      if (maxPrice) where.price.$lte = Number(maxPrice);
+    }
+    if (q) where.name = { $regex: String(q), $options: "i" };
+
+    const items = await Item.find(where).sort({ createdAt: -1 });
+    res.json(items);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Failed to fetch items" });
+  }
 });
 
-// simple health
-app.get('/', (req, res) => {
-  res.send({ ok: true, message: 'Ecom backend running' });
+app.get("/items/:id", async (req, res) => {
+  try {
+    const it = await Item.findById(req.params.id);
+    if (!it) return res.status(404).json({ error: "Item not found" });
+    res.json(it);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Failed to fetch item" });
+  }
 });
 
-const PORT = process.env.PORT || 4000;
+// Cart
+app.get("/cart", authenticate, async (req, res) => {
+  try {
+    const cart = await Cart.findOne({ userId: req.user.id }).populate("items.itemId");
+    if (!cart) return res.json([]);
+    // Flatten for your frontend if you prefer
+    const out = cart.items.map((i) => ({
+      itemId: i.itemId?._id?.toString() || "",
+      qty: i.qty
+    }));
+    res.json(out);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Failed to fetch cart" });
+  }
+});
+
+app.post("/cart/add", authenticate, async (req, res) => {
+  try {
+    const { itemId, qty = 1 } = req.body || {};
+    if (!itemId) return res.status(400).json({ error: "itemId required" });
+
+    const item = await Item.findById(itemId);
+    if (!item) return res.status(404).json({ error: "Item not found" });
+
+    let cart = await Cart.findOne({ userId: req.user.id });
+    if (!cart) cart = await Cart.create({ userId: req.user.id, items: [] });
+
+    const existing = cart.items.find((i) => i.itemId.toString() === itemId);
+    if (existing) existing.qty += Number(qty);
+    else cart.items.push({ itemId, qty: Number(qty) });
+
+    await cart.save();
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Failed to add to cart" });
+  }
+});
+
+app.post("/cart/update", authenticate, async (req, res) => {
+  try {
+    const { itemId, qty } = req.body || {};
+    if (!itemId || typeof qty !== "number") return res.status(400).json({ error: "itemId and qty required" });
+
+    let cart = await Cart.findOne({ userId: req.user.id });
+    if (!cart) return res.json({ ok: true });
+
+    const it = cart.items.find((i) => i.itemId.toString() === itemId);
+    if (!it) return res.json({ ok: true });
+
+    if (qty <= 0) {
+      cart.items = cart.items.filter((i) => i.itemId.toString() !== itemId);
+    } else {
+      it.qty = qty;
+    }
+
+    await cart.save();
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Failed to update cart" });
+  }
+});
+
+app.post("/cart/remove", authenticate, async (req, res) => {
+  try {
+    const { itemId } = req.body || {};
+    if (!itemId) return res.status(400).json({ error: "itemId required" });
+
+    let cart = await Cart.findOne({ userId: req.user.id });
+    if (!cart) return res.json({ ok: true });
+
+    cart.items = cart.items.filter((i) => i.itemId.toString() !== itemId);
+    await cart.save();
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Failed to remove item" });
+  }
+});
+
+// (Optional) Admin CRUD for items (protect as needed)
+app.post("/items", async (req, res) => {
+  try {
+    const it = await Item.create(req.body || {});
+    res.json(it);
+  } catch (e) {
+    console.error(e);
+    res.status(400).json({ error: "Failed to create item" });
+  }
+});
+app.put("/items/:id", async (req, res) => {
+  try {
+    const it = await Item.findByIdAndUpdate(req.params.id, req.body || {}, { new: true });
+    res.json(it);
+  } catch (e) {
+    console.error(e);
+    res.status(400).json({ error: "Failed to update item" });
+  }
+});
+app.delete("/items/:id", async (req, res) => {
+  try {
+    await Item.findByIdAndDelete(req.params.id);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(400).json({ error: "Failed to delete item" });
+  }
+});
+
+// ----------- Start -----------
 app.listen(PORT, () => {
-  console.log('Server started on port', PORT);
+  console.log(`Legacy server listening on :${PORT}`);
 });
