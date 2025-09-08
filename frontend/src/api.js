@@ -1,6 +1,6 @@
 // frontend/src/api.js
 const API = (() => {
-  const base = 'https://shop-hub-app-one.vercel.app'; // deployed backend URL
+  const base = 'https://shop-hub-app-gilt.vercel.app/'; // deployed backend URL
 
   function getHeaders(token) {
     const headers = { 'Content-Type': 'application/json' };
