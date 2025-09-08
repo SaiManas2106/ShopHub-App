@@ -11,8 +11,8 @@ const app = express();
 
 // ----------- Config -----------
 const PORT = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "*"; // put your frontend URL in prod
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me"; // use env in production
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "*"; // your frontend URL in prod
 const MONGO_URI = process.env.MONGO_URI || "";
 
 // ----------- Middleware -----------
@@ -20,7 +20,7 @@ app.use(express.json({ limit: "1mb" }));
 app.use(
   cors({
     origin: FRONTEND_ORIGIN === "*" ? true : FRONTEND_ORIGIN,
-    credentials: false
+    credentials: false,
   })
 );
 
@@ -52,35 +52,25 @@ function authenticate(req, res, next) {
 }
 
 // ----------- Seed (first deploy convenience) -----------
-// Will seed ITEMS once if collection is empty
 async function seedItemsIfEmpty() {
   const count = await Item.countDocuments();
   if (count > 0) return;
   const seed = [
-    // clothing
     { name: "Classic Cotton T-Shirt", category: "clothing", price: 499, image: "/images/clothing/tshirt.jpg", description: "Soft cotton. Everyday essential." },
     { name: "Slim Fit Jeans", category: "clothing", price: 1999, image: "/images/clothing/jeans.jpg", description: "Stretch denim for comfort." },
     { name: "Athletic Hoodie", category: "clothing", price: 1499, image: "/images/clothing/hoodie.jpg", description: "Warm fleece, modern fit." },
-
-    // home
     { name: "Ceramic Dinner Set (12pc)", category: "home", price: 2499, image: "/images/home/dinner-set.jpg", description: "Dishwasher safe ceramics." },
     { name: "Memory Foam Pillow", category: "home", price: 1299, image: "/images/home/pillow.jpg", description: "Neck support for better sleep." },
     { name: "Textured Throw Blanket", category: "home", price: 999, image: "/images/home/throw.jpg", description: "Cozy and lightweight." },
-
-    // electronics
     { name: "Wireless Earbuds", category: "electronics", price: 2999, image: "/images/electronics/earbuds.jpg", description: "Bluetooth 5.3, 24h battery." },
     { name: "Smartwatch S2", category: "electronics", price: 4999, image: "/images/electronics/smartwatch.jpg", description: "Fitness & notifications." },
     { name: "Portable Speaker", category: "electronics", price: 2299, image: "/images/electronics/speaker.jpg", description: "Deep bass, compact body." },
-
-    // sports
     { name: "Pro Football", category: "sports", price: 899, image: "/images/sports/football.jpg", description: "Match quality ball." },
     { name: "Yoga Mat 6mm", category: "sports", price: 799, image: "/images/sports/yoga-mat.jpg", description: "Non-slip surface." },
     { name: "Adjustable Dumbbells (Pair)", category: "sports", price: 3499, image: "/images/sports/dumbbells.jpg", description: "Home strength training." },
-
-    // books
     { name: "The Pragmatic Programmer", category: "books", price: 1599, image: "/images/books/pragmatic.jpg", description: "Programming classic." },
     { name: "Atomic Habits", category: "books", price: 899, image: "/images/books/atomic.jpg", description: "Build better habits." },
-    { name: "Clean Code", category: "books", price: 1499, image: "/images/books/clean-code.jpg", description: "Code craftsmanship." }
+    { name: "Clean Code", category: "books", price: 1499, image: "/images/books/clean-code.jpg", description: "Code craftsmanship." },
   ];
   await Item.insertMany(seed);
   console.log(`✅ Seeded ${seed.length} items`);
@@ -103,8 +93,6 @@ app.post("/auth/signup", async (req, res) => {
 
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({ username, password: hash });
-
-    // create empty cart
     await Cart.create({ userId: user._id, items: [] });
 
     const token = signToken(user);
@@ -134,7 +122,7 @@ app.post("/auth/login", async (req, res) => {
   }
 });
 
-// Items (list + filters)
+// Items
 app.get("/items", async (req, res) => {
   try {
     const { q, category, minPrice, maxPrice } = req.query;
@@ -171,10 +159,9 @@ app.get("/cart", authenticate, async (req, res) => {
   try {
     const cart = await Cart.findOne({ userId: req.user.id }).populate("items.itemId");
     if (!cart) return res.json([]);
-    // Flatten for your frontend if you prefer
     const out = cart.items.map((i) => ({
       itemId: i.itemId?._id?.toString() || "",
-      qty: i.qty
+      qty: i.qty,
     }));
     res.json(out);
   } catch (e) {
@@ -249,7 +236,7 @@ app.post("/cart/remove", authenticate, async (req, res) => {
   }
 });
 
-// (Optional) Admin CRUD for items (protect as needed)
+// Admin CRUD for items
 app.post("/items", async (req, res) => {
   try {
     const it = await Item.create(req.body || {});
@@ -280,5 +267,5 @@ app.delete("/items/:id", async (req, res) => {
 
 // ----------- Start -----------
 app.listen(PORT, () => {
-  console.log(`Legacy server listening on :${PORT}`);
+  console.log(`Server listening on :${PORT}`);
 });
